@@ -1,0 +1,44 @@
+name: Build and Push Custom Robotics Images
+
+on:
+  push:
+    branches: [ "main", "master" ] # 본인의 메인 브랜치 이름에 맞게 설정
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # 두 가지 타겟(ros-only, gazebo-only)을 동시에 돌리도록 정의
+        include:
+          - target: ros-only
+            image_tag: ros-only
+          - target: gazebo-only
+            image_tag: gazebo-only
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v4
+
+    - name: Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    # GitHub Secrets에 넣은 값으로 Docker Hub 로그인
+    - name: Log in to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKERHUB_USERNAME }}
+        password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+    # 이미지 빌드 및 푸시 (요구사항: username/이미지이름:태그 형태)
+    - name: Build and Push Docker Image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: .docker/Dockerfile # Dave 도커파일 경로
+        target: ${{ matrix.target }} # 멀티스테이지 타겟 지정
+        push: true
+        # 예: sangmin/my-dave:ros-only 형태로 빌드 및 업로드됨
+        tags: |
+          ${{ secrets.DOCKERHUB_USERNAME }}/my-dave:${{ matrix.image_tag }}
